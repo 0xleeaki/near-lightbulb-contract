@@ -1,4 +1,4 @@
-# Rust Smart Contract Template
+# LightBulb Contract
 
 ## Getting started
 
