@@ -34,14 +34,7 @@ impl Contract {
     }
 }
 
-/*
- * the rest of this file sets up unit tests
- * to run these, the command will be:
- * cargo test --package near-lightbulb-contract-- --nocapture
- * Note: 'near-lightbulb-contract' comes from Cargo.toml's 'name' key
- */
 
-// use the attribute below for unit tests
 #[cfg(test)]
 mod tests {
     use super::*;

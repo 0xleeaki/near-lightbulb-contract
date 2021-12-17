@@ -23,7 +23,7 @@ To get started with this template:
 
 10. Deploy the contract
 
-    `NEAR_ENV=testnet near deploy --wasmFile target/wasm32-unknown-unknown/release/near-lightbulb-contract.wasm --accountId YOUR_CONTRACT.YOUR_ACCOUNT.testnet`
+    `NEAR_ENV=testnet near deploy --wasmFile target/wasm32-unknown-unknown/release/lightbulb-contract.wasm --accountId YOUR_CONTRACT.YOUR_ACCOUNT.testnet`
 
 11. Read contract
 
