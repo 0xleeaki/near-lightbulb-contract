@@ -1,32 +1,29 @@
-use std::collections::HashMap;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near_bindgen, AccountId};
+use near_sdk::{env, near_bindgen, Promise};
+
+// 5 Ⓝ in yoctoNEAR
+const PRIZE_AMOUNT: u128 = 5_000_000_000_000_000_000_000_000;
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Contract {
     status: bool,
-    pub messages: HashMap<AccountId, String>,
 }
 
 #[near_bindgen]
 impl Contract {
+    #[payable]
     pub fn toggle(&mut self) {
+        if self.status {
+            Promise::new(env::predecessor_account_id()).transfer(PRIZE_AMOUNT);
+        } else {
+            let amount = env::attached_deposit();
+            assert!(
+                amount >= PRIZE_AMOUNT,
+                "Required min 5 NEAR to turn on the light bulb"
+            );
+        }
         self.status = !self.status;
-    }
-
-    pub fn toggle_with_message(&mut self, message: String) {
-        let account_id = env::signer_account_id();
-        self.status = !self.status;
-        self.messages.insert(account_id, message);
-    }
-
-    pub fn clear_all_message(&mut self) {
-        self.messages.clear();
-    }
-
-    pub fn get_all_messages(self) -> HashMap<AccountId, String> {
-        self.messages
     }
 
     pub fn get_status(&self) -> bool {
@@ -34,16 +31,13 @@ impl Contract {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::MockedBlockchain;
-    use near_sdk::serde_json::Map;
-    use near_sdk::testing_env;
-    use near_sdk::test_utils::VMContextBuilder;
     use near_sdk::json_types::ValidAccountId;
     use near_sdk::serde::export::TryFrom;
+    use near_sdk::test_utils::VMContextBuilder;
+    use near_sdk::testing_env;
 
     // simple helper function to take a string literal and return a ValidAccountId
     fn to_valid_account(account: &str) -> ValidAccountId {
@@ -63,7 +57,7 @@ mod tests {
     fn toggle() {
         let context = get_context(to_valid_account("leeaki.near"));
         testing_env!(context.build());
-        let mut contract = Contract {status: false, messages: HashMap::new()};
+        let mut contract = Contract { status: false };
         contract.toggle();
         let status: bool = contract.get_status();
         println!("Status after toggle: {}", status);
