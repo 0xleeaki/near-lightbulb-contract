@@ -19,7 +19,7 @@ impl Contract {
         } else {
             let amount = env::attached_deposit();
             assert!(
-                amount >= PRIZE_AMOUNT,
+                amount > PRIZE_AMOUNT,
                 "Required min 5 NEAR to turn on the light bulb"
             );
         }
