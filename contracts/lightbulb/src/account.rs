@@ -1,8 +1,8 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Serialize, self};
+use near_sdk::serde::Serialize;
 use near_sdk::{AccountId, Balance};
 
-use crate::errors;
+use crate::errors::ERR_INSUFFICIENT_BALANCE;
 
 #[serde(crate = "near_sdk::serde")]
 #[derive(BorshSerialize, BorshDeserialize, Serialize)]
@@ -28,11 +28,7 @@ impl Account {
     }
 
     pub(crate) fn withdraw(&mut self, amount: Balance) {
-        assert!(
-            self.amount >= amount,
-            "{}",
-            errors::ERR_INSUFFICIENT_BALANCE
-        );
+        assert!(self.amount >= amount, "{}", ERR_INSUFFICIENT_BALANCE);
         self.amount = self.amount - amount;
     }
 }

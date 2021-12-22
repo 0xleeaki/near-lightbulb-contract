@@ -2,17 +2,17 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, ext_contract, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, Promise,
+    env, ext_contract, log, near_bindgen, AccountId, Balance, BorshStorageKey, Promise,
 };
 
 mod account;
 mod errors;
 mod token_receiver;
+mod utils;
 
 use crate::account::Account;
-
-const PRIZE_AMOUNT: u128 = 5_000_000_000_000_000_000_000_000; // 5 NEAR
-const GAS_FOR_FT_TRANSFER: Gas = Gas(5_000_000_000_000);
+use crate::errors::{ERR_ACC_NOT_REGISTERED, ERR_ILLEGAL_FEE, ERR_MIN_NEAR, ERR_OWNER};
+use crate::utils::{FEE_DIVISOR, GAS_FOR_FT_TRANSFER, PRIZE_AMOUNT};
 
 #[ext_contract(ext_ft)]
 trait FungibleToken {
@@ -27,7 +27,9 @@ pub(crate) enum StorageKey {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Contract {
+    owner_id: AccountId,
     accepted_token: AccountId,
+    fee: u128,
     status: bool,
     accounts: LookupMap<AccountId, Account>,
 }
@@ -40,41 +42,78 @@ impl Default for Contract {
 
 #[near_bindgen]
 impl Contract {
+    /* ========== INITTIALIZE =============== */
     #[init]
     pub fn new(accepted_token: AccountId, status: bool) -> Self {
         let this = Self {
-            status: status,
+            owner_id: env::predecessor_account_id(),
             accepted_token: accepted_token.clone().into(),
+            fee: 0,
+            status: status,
             accounts: LookupMap::new(StorageKey::Accounts),
         };
         this
     }
 
-    #[payable]
-    pub fn toggle(&mut self) {
-        if self.status {
-            Promise::new(env::predecessor_account_id()).transfer(PRIZE_AMOUNT);
-        } else {
-            let amount = env::attached_deposit();
-            assert!(
-                amount > PRIZE_AMOUNT,
-                "Required min 5 NEAR to turn on the light bulb"
-            );
-        }
-        self.status = !self.status;
+    /* ========== ASSERT FUNCTIONS ========== */
+
+    pub(crate) fn assert_owner(&self) {
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.owner_id,
+            "{}",
+            ERR_OWNER
+        );
     }
 
-    pub fn internal_get_account(&self, account_id: &AccountId) -> Option<Account> {
+    /* ========== INTERNAL FUNCTIONS ========== */
+
+    fn internal_get_account(&self, account_id: &AccountId) -> Option<Account> {
         self.accounts.get(account_id)
     }
 
-    pub fn internal_unwrap_account(&self, account_id: &AccountId) -> Account {
+    fn internal_unwrap_account(&self, account_id: &AccountId) -> Account {
         self.internal_get_account(account_id)
-            .expect(errors::ERR_ACC_NOT_REGISTERED)
+            .expect(ERR_ACC_NOT_REGISTERED)
     }
 
-    pub fn internal_exits_account(&self, account_id: &AccountId) -> bool {
+    fn internal_exits_account(&self, account_id: &AccountId) -> bool {
         self.accounts.contains_key(account_id)
+    }
+
+    /* ========== RESTRICTED FUNCTIONS ========== */
+
+    pub fn set_owner(&mut self, owner_id: AccountId) {
+        self.assert_owner();
+        self.owner_id = owner_id;
+    }
+
+    pub fn get_owner(&self) -> AccountId {
+        self.owner_id.clone()
+    }
+
+    pub fn set_fee(&mut self, fee: u128) {
+        self.assert_owner();
+        assert!(fee <= FEE_DIVISOR, "{}", ERR_ILLEGAL_FEE);
+        self.fee = fee;
+    }
+
+    /* ========== PUBLIC FUNCTIONS ========== */
+
+    #[payable]
+    pub fn toggle(&mut self) {
+        if self.status {
+            let amount = if self.fee != 0 {
+                PRIZE_AMOUNT * self.fee / (FEE_DIVISOR)
+            } else {
+                PRIZE_AMOUNT
+            };
+            Promise::new(env::predecessor_account_id()).transfer(amount);
+        } else {
+            let amount = env::attached_deposit();
+            assert!(amount > PRIZE_AMOUNT, "{}", ERR_MIN_NEAR);
+        }
+        self.status = !self.status;
     }
 
     pub fn deposit(&mut self, sender_id: &AccountId, amount: Balance) {
@@ -87,7 +126,7 @@ impl Contract {
         } else {
             let new_account = Account {
                 account_id: sender_id.clone(),
-                amount: amount
+                amount: amount,
             };
             self.accounts.insert(&sender_id, &new_account);
         }
@@ -105,6 +144,8 @@ impl Contract {
             GAS_FOR_FT_TRANSFER,
         );
     }
+
+    /* ========== VIEWS FUNCTIONS ========== */
 
     pub fn get_status(&self) -> bool {
         self.status

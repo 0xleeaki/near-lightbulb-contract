@@ -1,0 +1,5 @@
+use near_sdk::Gas;
+
+pub const PRIZE_AMOUNT: u128 = 5_000_000_000_000_000_000_000_000; // 5 NEAR
+pub const GAS_FOR_FT_TRANSFER: Gas = Gas(5_000_000_000_000);
+pub const FEE_DIVISOR: u128 = 100_000_000_000_000_000_000_000_000; // 100%

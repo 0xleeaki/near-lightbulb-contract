@@ -5,7 +5,7 @@ use near_sdk::PromiseOrValue;
 
 use crate::*;
 
-trait FungibleTokenReceiver {
+pub trait FungibleTokenReceiver {
     fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
@@ -16,8 +16,6 @@ trait FungibleTokenReceiver {
 
 #[near_bindgen]
 impl FungibleTokenReceiver for Contract {
-    /// Callback on receiving tokens by this contract.
-    #[allow(unreachable_code)]
     fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
