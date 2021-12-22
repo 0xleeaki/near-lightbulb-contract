@@ -1,5 +1,4 @@
 use near_sdk::json_types::U128;
-use near_sdk::log;
 use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
 
@@ -22,12 +21,10 @@ impl FungibleTokenReceiver for Contract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        log!("Account @{} transfer {}", sender_id, msg);
         if msg.is_empty() {
-            log!("Deposit...");
-            self.deposit(&sender_id, amount.into())
+            self.deposit(&sender_id, amount.into());
+            return PromiseOrValue::Value(U128(0));
         }
-        log!("Return...");
-        PromiseOrValue::Value(U128(0))
+        PromiseOrValue::Value(amount)
     }
 }

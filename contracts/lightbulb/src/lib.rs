@@ -2,7 +2,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, AccountId, Balance, BorshStorageKey, Promise,
+    env, ext_contract, near_bindgen, AccountId, Balance, BorshStorageKey, Promise,
 };
 
 mod account;
@@ -66,21 +66,6 @@ impl Contract {
         );
     }
 
-    /* ========== INTERNAL FUNCTIONS ========== */
-
-    fn internal_get_account(&self, account_id: &AccountId) -> Option<Account> {
-        self.accounts.get(account_id)
-    }
-
-    fn internal_unwrap_account(&self, account_id: &AccountId) -> Account {
-        self.internal_get_account(account_id)
-            .expect(ERR_ACC_NOT_REGISTERED)
-    }
-
-    fn internal_exits_account(&self, account_id: &AccountId) -> bool {
-        self.accounts.contains_key(account_id)
-    }
-
     /* ========== RESTRICTED FUNCTIONS ========== */
 
     pub fn set_owner(&mut self, owner_id: AccountId) {
@@ -100,6 +85,22 @@ impl Contract {
 
     /* ========== PUBLIC FUNCTIONS ========== */
 
+    pub(crate) fn internal_save_account(&mut self, account: Account) {
+        self.accounts.insert(&account.account_id, &account);
+    }
+
+    pub(crate) fn unwrap_account(&self, account_id: &AccountId) -> Account {
+        self.get_account(account_id).expect(ERR_ACC_NOT_REGISTERED)
+    }
+
+    pub fn get_account(&self, account_id: &AccountId) -> Option<Account> {
+        self.accounts.get(account_id)
+    }
+
+    pub fn exits_account(&self, account_id: &AccountId) -> bool {
+        self.accounts.contains_key(account_id)
+    }
+
     #[payable]
     pub fn toggle(&mut self) {
         if self.status {
@@ -116,13 +117,12 @@ impl Contract {
         self.status = !self.status;
     }
 
-    pub fn deposit(&mut self, sender_id: &AccountId, amount: Balance) {
-        log!("Deposit 2...");
-        let mut account = self.internal_unwrap_account(sender_id);
-        let is_exits = self.internal_exits_account(sender_id);
-        log!("is_exits {}", is_exits);
+    pub(crate) fn deposit(&mut self, sender_id: &AccountId, amount: Balance) {
+        let is_exits = self.exits_account(sender_id);
         if is_exits {
+            let mut account = self.unwrap_account(sender_id);
             account.deposit(amount);
+            self.internal_save_account(account);
         } else {
             let new_account = Account {
                 account_id: sender_id.clone(),
@@ -132,9 +132,10 @@ impl Contract {
         }
     }
 
-    pub fn withdraw(&self, sender_id: &AccountId, amount: Balance) {
-        let mut account = self.internal_unwrap_account(sender_id);
-        account.withdraw(amount);
+    pub fn withdraw(&mut self, amount: U128) {
+        let mut account = self.unwrap_account(&env::predecessor_account_id());
+        account.withdraw(amount.into());
+        self.internal_save_account(account);
         ext_ft::ft_transfer(
             env::predecessor_account_id(),
             amount.into(),
